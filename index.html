@@ -5,7 +5,7 @@
     <title>Newborn Digital Birth Certificate</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Tailwind -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Inter font -->
@@ -58,28 +58,49 @@
   <body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
 
-    <!-- React + ReactDOM -->
+    <!-- React + ReactDOM (production UMD) -->
     <script
       crossorigin
-      src="https://unpkg.com/react@18/umd/react.development.js"
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
     ></script>
     <script
       crossorigin
-      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
     ></script>
 
-    <!-- Lucide React icons -->
+    <!-- Make sure some libs that expect window.react still work -->
+    <script>
+      window.react = window.React;
+    </script>
+
+    <!-- Lucide React icons (UMD) -->
     <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
 
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- App -->
+    <!-- App code -->
     <script type="text/babel" data-presets="env,react">
       const { useState, useEffect } = React;
-      const Lucide = window.LucideReact || {};
 
-      // Reusable components
+      // Safe Lucide wrapper – if the library fails, we still render
+      const Lucide =
+        window.LucideReact ||
+        new Proxy(
+          {},
+          {
+            get: () =>
+              function EmptyIcon(props) {
+                return React.createElement("span", {
+                  ...props,
+                  style: { display: "inline-block", width: "1em", height: "1em" },
+                });
+              },
+          }
+        );
+
+      // ---------- Reusable components ----------
+
       const Button = ({
         children,
         onClick,
@@ -148,7 +169,8 @@
         </div>
       );
 
-      // Splash screen (TAMM)
+      // ---------- Splash screen (TAMM) ----------
+
       const TammSplash = ({ onDone }) => {
         useEffect(() => {
           const t = setTimeout(onDone, 1800);
@@ -174,7 +196,8 @@
         );
       };
 
-      // UAE PASS login + scan animation
+      // ---------- UAE PASS login ----------
+
       const UAEPassLogin = ({ onLogin }) => {
         const [isScanning, setIsScanning] = useState(false);
 
@@ -241,14 +264,14 @@
         );
       };
 
-      // Intro: Newborn Journey Story
+      // ---------- Intro: Newborn Journey Story ----------
+
       const JourneyIntro = ({ onStartAsIs, onStartToBe, onOpenSummary }) => {
         return (
           <div className="min-h-screen flex justify-center bg-slate-100 px-4 py-6">
             <div className="w-full max-w-4xl">
               <Breadcrumb label="Newborn Journey Story" onHome={() => {}} />
 
-              {/* Hero */}
               <Card className="mb-6 overflow-hidden bg-gradient-to-br from-emerald-700 to-teal-800 text-white">
                 <div className="p-6 md:p-7">
                   <p className="text-[11px] tracking-[0.24em] uppercase font-semibold text-emerald-100 mb-2">
@@ -258,7 +281,8 @@
                     One journey for every newborn in Abu Dhabi
                   </h1>
                   <p className="text-sm md:text-[15px] text-emerald-50 max-w-2xl">
-                    Every year around <span className="font-semibold">45,000 families</span> go
+                    Every year around{" "}
+                    <span className="font-semibold">45,000 families</span> go
                     through the newborn paperwork journey. Today it is scattered
                     and stressful; our goal is to complete everything in
                     minutes, in one seamless experience.
@@ -266,7 +290,6 @@
                 </div>
               </Card>
 
-              {/* As-Is / To-Be snapshot */}
               <div className="grid md:grid-cols-2 gap-4 mb-6">
                 <Card className="p-5">
                   <p className="text-sm font-semibold text-rose-600 mb-3">
@@ -293,7 +316,6 @@
                 </Card>
               </div>
 
-              {/* Why this change */}
               <Card className="p-6 mb-6">
                 <h2 className="text-base font-semibold text-slate-900 mb-3">
                   Why this change is urgent now
@@ -323,7 +345,6 @@
                 </div>
               </Card>
 
-              {/* What this prototype shows */}
               <Card className="p-6 mb-6">
                 <h2 className="text-base font-semibold text-slate-900 mb-3">
                   What this prototype shows
@@ -342,7 +363,6 @@
                 </ul>
               </Card>
 
-              {/* CTA buttons */}
               <div className="space-y-3 mb-10">
                 <Button
                   className="w-full"
@@ -374,7 +394,8 @@
         );
       };
 
-      // Strategy Summary page (Support Without Barriers style)
+      // ---------- Strategy Summary (Support Without Barriers layout) ----------
+
       const StrategySummary = ({ onBack }) => {
         const [expandedId, setExpandedId] = useState(1);
 
@@ -560,7 +581,6 @@
                 })}
               </div>
 
-              {/* Impact summary */}
               <Card className="p-6">
                 <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
                   <Lucide.Zap className="w-4 h-4 text-yellow-500" />
@@ -607,7 +627,8 @@
         );
       };
 
-      // Progress header used in As-Is / To-Be flows
+      // ---------- Shared header for step journeys ----------
+
       const JourneyStepsHeader = ({ steps, step, onStepChange, title }) => {
         return (
           <div className="mb-5">
@@ -625,7 +646,7 @@
             </div>
             <div className="flex items-center justify-between px-2 mb-4 relative">
               <div className="absolute left-6 right-6 top-5 h-0.5 bg-slate-200" />
-              {steps.map((s, index) => {
+              {steps.map((s) => {
                 const active = step === s.id;
                 const complete = step > s.id;
                 return (
@@ -661,7 +682,8 @@
         );
       };
 
-      // As-Is Journey
+      // ---------- As-Is Journey ----------
+
       const AsIsJourney = ({
         initialStep = 1,
         onBackToIntro,
@@ -686,10 +708,6 @@
           { id: 5, label: "Certificate" },
         ];
 
-        const goNext = () => {
-          setStep((s) => Math.min(s + 1, 5));
-        };
-
         const toggleLang = (key) => {
           setLangSelection((prev) => ({ ...prev, [key]: !prev[key] }));
         };
@@ -699,13 +717,12 @@
           (langSelection.en ? 50 : 0) +
           (langSelection.mofa ? 150 : 0);
 
+        const goNext = () => setStep((s) => Math.min(5, s + 1));
+
         return (
           <div className="min-h-screen flex justify-center bg-slate-100 px-4 py-6">
             <div className="w-full max-w-md">
-              <Breadcrumb
-                label="As-Is journey"
-                onHome={onBackToIntro}
-              />
+              <Breadcrumb label="As-Is journey" onHome={onBackToIntro} />
               <JourneyStepsHeader
                 steps={steps}
                 step={step}
@@ -713,7 +730,6 @@
                 title="As-Is journey"
               />
 
-              {/* Step bodies */}
               <Card className="p-6 mb-4">
                 {step === 1 && (
                   <>
@@ -739,12 +755,10 @@
                         "AD/BTH-NC/0030214/2024",
                         "AD/BTH-NC/0031020/2024",
                         "AG/BTH/MC/0032292/2024",
-                      ].map((num, idx) => (
+                      ].map((num) => (
                         <label
                           key={num}
-                          className={
-                            "flex items-center justify-between px-4 py-3 text-sm cursor-pointer border-t border-slate-100 hover:bg-slate-50"
-                          }
+                          className="flex items-center justify-between px-4 py-3 text-sm cursor-pointer border-t border-slate-100 hover:bg-slate-50"
                         >
                           <span className="text-slate-800">{num}</span>
                           <input
@@ -953,7 +967,7 @@
         );
       };
 
-      // To-Be Journey
+      // ---------- To-Be Journey ----------
 
       const ToBeJourney = ({
         initialStep = 1,
@@ -1106,10 +1120,7 @@
         return (
           <div className="min-h-screen flex justify-center bg-slate-100 px-4 py-6">
             <div className="w-full max-w-md">
-              <Breadcrumb
-                label="To-Be journey"
-                onHome={onBackToIntro}
-              />
+              <Breadcrumb label="To-Be journey" onHome={onBackToIntro} />
               <JourneyStepsHeader
                 steps={steps}
                 step={step}
@@ -1536,7 +1547,8 @@
         );
       };
 
-      // Main App
+      // ---------- Main App ----------
+
       const App = () => {
         const [view, setView] = useState("splash"); // splash, login, intro, summary, asis, tobe
         const [currentStep, setCurrentStep] = useState(1);
@@ -1597,6 +1609,9 @@
 
       const root = ReactDOM.createRoot(document.getElementById("root"));
       root.render(<App />);
+
+      console.log("App mounted");
     </script>
   </body>
 </html>
+
