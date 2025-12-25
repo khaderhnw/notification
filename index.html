@@ -1,1617 +1,1796 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Newborn Digital Birth Certificate</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+<head>
+  <meta charset="UTF-8" />
+  <title>Newborn Digital Birth Certificate – Prototype</title>
+  <meta name="viewport"content="width=device-width,initial-scale=1" />
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React + ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 
-    <!-- Inter font -->
-    <link
-      rel="preconnect"
-      href="https://fonts.googleapis.com"
-    />
-    <link
-      rel="preconnect"
-      href="https://fonts.gstatic.com"
-      crossorigin
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+  <!-- Lucide React (icons) -->
+  <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
 
-    <style>
-      body {
-        margin: 0;
-        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
-          "Segoe UI", sans-serif;
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter',sans-serif; background-color:#f1f5f9; }
+
+    .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    .animate-slide-up { animation: slideUp 0.4s ease-out forwards; }
+
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+    .scan-line {
+      width:100%;height:2px;background:#22c55e;position:absolute;top:0;left:0;
+      animation:scan 2s infinite linear;box-shadow:0 0 4px #22c55e;
+    }
+    @keyframes scan { 0%{top:0} 50%{top:100%} 100%{top:0} }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+const Lucide = window.LucideReact || new Proxy({}, { get: () => () => null });
+
+/* ----------------- Shared UI ----------------- */
+
+const Button = ({
+  children,
+  onClick,
+  variant = "primary",
+  className = "",
+  disabled = false,
+  icon: Icon
+}) => {
+  const base =
+    "px-6 py-3 rounded-xl font-semibold transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm text-sm";
+  const styles = {
+    primary: "bg-emerald-700 text-white hover:bg-emerald-800",
+    secondary:
+      "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200",
+    subtle:
+      "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200",
+    ghost: "bg-transparent text-emerald-700 hover:bg-emerald-50",
+    black: "bg-black text-white hover:bg-neutral-800"
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={
+        base +
+        " " +
+        styles[variant] +
+        " " +
+        (disabled ? "opacity-50 cursor-not-allowed" : "") +
+        " " +
+        className
       }
+    >
+      {Icon && <Icon className="w-4 h-4" />}
+      {children}
+    </button>
+  );
+};
 
-      .scan-line {
-        width: 100%;
-        height: 2px;
-        background: #22c55e;
-        position: absolute;
-        top: 0;
-        left: 0;
-        animation: scan 2s infinite linear;
-        box-shadow: 0 0 4px #22c55e;
-      }
+const Card = ({ children, className = "" }) => (
+  <div
+    className={
+      "bg-white rounded-2xl border border-slate-200 shadow-sm " + className
+    }
+  >
+    {children}
+  </div>
+);
 
-      @keyframes scan {
-        0% {
-          top: 0;
-        }
-        50% {
-          top: 100%;
-        }
-        100% {
-          top: 0;
-        }
-      }
-    </style>
-  </head>
+/* ----------------- Splash + Login + Home ----------------- */
 
-  <body class="bg-slate-50 text-slate-900">
-    <div id="root"></div>
+const TammSplash = ({ onNext }) => {
+  useEffect(() => {
+    const t = setTimeout(onNext, 1600);
+    return () => clearTimeout(t);
+  }, [onNext]);
 
-    <!-- React + ReactDOM (production UMD) -->
-    <script
-      crossorigin
-      src="https://unpkg.com/react@18/umd/react.production.min.js"
-    ></script>
-    <script
-      crossorigin
-      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
-    ></script>
-
-    <!-- Make sure some libs that expect window.react still work -->
-    <script>
-      window.react = window.React;
-    </script>
-
-    <!-- Lucide React icons (UMD) -->
-    <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
-
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- App code -->
-    <script type="text/babel" data-presets="env,react">
-      const { useState, useEffect } = React;
-
-      // Safe Lucide wrapper – if the library fails, we still render
-      const Lucide =
-        window.LucideReact ||
-        new Proxy(
-          {},
-          {
-            get: () =>
-              function EmptyIcon(props) {
-                return React.createElement("span", {
-                  ...props,
-                  style: { display: "inline-block", width: "1em", height: "1em" },
-                });
-              },
-          }
-        );
-
-      // ---------- Reusable components ----------
-
-      const Button = ({
-        children,
-        onClick,
-        variant = "primary",
-        className = "",
-        disabled = false,
-        icon: Icon,
-        type = "button",
-      }) => {
-        const base =
-          "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2";
-        const styles = {
-          primary:
-            "bg-teal-700 text-white hover:bg-teal-800 focus:ring-teal-600 shadow-sm",
-          secondary:
-            "bg-white text-teal-800 border border-teal-700 hover:bg-teal-50 focus:ring-teal-600",
-          ghost:
-            "bg-transparent text-slate-700 hover:bg-slate-100 border border-slate-200 focus:ring-slate-300",
-          black:
-            "bg-black text-white hover:bg-slate-900 focus:ring-black shadow-sm",
-          subtle:
-            "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 focus:ring-slate-300",
-        };
-
-        return (
-          <button
-            type={type}
-            onClick={onClick}
-            disabled={disabled}
-            className={
-              base +
-              " " +
-              (styles[variant] || styles.primary) +
-              (disabled ? " opacity-50 cursor-not-allowed" : "") +
-              (className ? " " + className : "")
-            }
-          >
-            {Icon && <Icon className="w-4 h-4" />}
-            {children}
-          </button>
-        );
-      };
-
-      const Card = ({ children, className = "" }) => (
-        <div
-          className={
-            "bg-white rounded-2xl border border-slate-200 shadow-sm " +
-            className
-          }
-        >
-          {children}
+  return (
+    <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-emerald-900 to-emerald-700 text-white relative overflow-hidden">
+      <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+      <div className="z-10 flex flex-col items-center animate-slide-up">
+        <div className="w-28 h-28 bg-white/10 rounded-3xl flex items-center justify-center backdrop-blur mb-6 border border-white/20 shadow-2xl">
+          <Lucide.Activity className="w-12 h-12" />
         </div>
-      );
+        <h1 className="text-4xl font-bold tracking-tight">TAMM</h1>
+        <p className="text-emerald-100 mt-2 text-xs tracking-[0.28em] uppercase">
+          Abu Dhabi Government
+        </p>
+      </div>
+      <div className="absolute bottom-10">
+        <Lucide.Loader2 className="w-6 h-6 animate-spin text-emerald-200" />
+      </div>
+    </div>
+  );
+};
 
-      const Breadcrumb = ({ onHome, label }) => (
-        <div className="flex items-center gap-2 text-xs text-slate-500 mb-4">
-          <button
-            className="flex items-center gap-1 hover:text-slate-700"
-            onClick={onHome}
-          >
-            <Lucide.ArrowLeft className="w-3 h-3" />
-            <span>Home</span>
-          </button>
-          <span>/</span>
-          <span className="font-medium text-slate-700">{label}</span>
+const UAEPassLogin = ({ onLogin }) => {
+  const [isScanning, setIsScanning] = useState(false);
+
+  const handleLogin = () => {
+    setIsScanning(true);
+    setTimeout(() => {
+      setIsScanning(false);
+      onLogin();
+    }, 1800);
+  };
+
+  return (
+    <div className="h-screen flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:18px_18px] opacity-60"></div>
+
+      {isScanning ? (
+        <div className="z-10 flex flex-col items-center animate-fade-in">
+          <div className="w-32 h-32 bg-white rounded-[2rem] relative overflow-hidden shadow-2xl border-4 border-slate-900 flex items-center justify-center mb-8">
+            <Lucide.Fingerprint className="w-16 h-16 text-slate-800 opacity-20" />
+            <div className="scan-line" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">
+            Verifying identity…
+          </h2>
+          <p className="text-slate-500 mt-2">Please look at the camera.</p>
         </div>
-      );
+      ) : (
+        <div className="z-10 w-full max-w-md px-6">
+          <div className="text-center mb-10 mt-16">
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+              Welcome
+            </h1>
+            <p className="text-slate-500">
+              Sign in securely with UAE PASS to access your newborn services.
+            </p>
+          </div>
 
-      // ---------- Splash screen (TAMM) ----------
-
-      const TammSplash = ({ onDone }) => {
-        useEffect(() => {
-          const t = setTimeout(onDone, 1800);
-          return () => clearTimeout(t);
-        }, [onDone]);
-
-        return (
-          <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-teal-900 to-teal-700 text-white relative overflow-hidden">
-            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_1px_1px,#0f766e_1px,transparent_0)] [background-size:24px_24px]" />
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="w-24 h-24 rounded-3xl bg-white/10 border border-white/20 flex items-center justify-center mb-6 backdrop-blur">
-                <Lucide.Activity className="w-12 h-12" />
+          <Card className="p-8 mb-4">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                UAE
+                <br />
+                PASS
               </div>
-              <div className="text-4xl font-extrabold tracking-tight">
+            </div>
+            <Button
+              onClick={handleLogin}
+              variant="black"
+              className="w-full h-14 text-base shadow-lg"
+              icon={Lucide.Lock}
+            >
+              Login with UAE PASS
+            </Button>
+          </Card>
+
+          <p className="text-center text-[11px] text-slate-400">
+            Your identity is verified by UAE PASS. No password is stored in
+            TAMM.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const HomeScreen = ({ onOpenStory }) => {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <header className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center text-white shadow-sm">
+              <Lucide.Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
                 TAMM
               </div>
-              <div className="text-xs uppercase tracking-[0.25em] text-teal-100 mt-2">
+              <div className="text-[11px] text-slate-400">
                 Abu Dhabi Government
               </div>
             </div>
-            <Lucide.Loader2 className="w-6 h-6 animate-spin text-teal-200 absolute bottom-10" />
           </div>
-        );
-      };
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">Signed in as</span>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-xs">
+                OA
+              </div>
+              <span className="text-sm font-medium text-slate-700">
+                Omar Al Nuaimi
+              </span>
+            </div>
+          </div>
+        </header>
 
-      // ---------- UAE PASS login ----------
+        <main className="space-y-8">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
+              Newborn services
+            </h1>
+            <p className="text-slate-500 text-sm max-w-xl">
+              Explore and simulate how newborn documents can be issued in one
+              seamless journey.
+            </p>
+          </div>
 
-      const UAEPassLogin = ({ onLogin }) => {
-        const [isScanning, setIsScanning] = useState(false);
+          <div className="relative">
+            <input
+              type="text"
+              disabled
+              value="Issue a Newborn Digital Birth Certificate"
+              className="w-full md:w-3/4 rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-11 text-sm text-slate-600 shadow-sm"
+            />
+            <Lucide.Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          </div>
 
-        const handleLogin = () => {
-          setIsScanning(true);
-          setTimeout(() => {
-            setIsScanning(false);
-            onLogin();
-          }, 1900);
-        };
+          <section className="space-y-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-[0.18em]">
+              <Lucide.Star className="w-4 h-4 text-amber-500" />
+              <span>Recommended</span>
+            </div>
 
-        return (
-          <div className="h-screen flex items-center justify-center bg-slate-50 relative px-4">
-            <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] opacity-60" />
-            <div className="relative z-10 w-full max-w-md">
-              {!isScanning ? (
+            <Card className="p-6 md:p-7 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+                  <Lucide.Baby className="w-5 h-5" />
+                </div>
                 <div>
-                  <div className="mb-10 text-center">
-                    <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                      Welcome
-                    </h1>
-                    <p className="text-slate-500 text-sm">
-                      Sign in securely with UAE PASS to access your newborn
-                      services.
-                    </p>
+                  <h2 className="text-base md:text-lg font-semibold text-slate-900">
+                    Issue a Newborn Digital Birth Certificate
+                  </h2>
+                  <p className="text-xs md:text-sm text-slate-500 mt-1 max-w-lg">
+                    Walk the current and future journey for a newborn in Abu
+                    Dhabi, from hospital notification to documents in wallet.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3 text-[11px] text-slate-500">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100">
+                      <Lucide.Clock className="w-3 h-3" />
+                      6–8 min simulation
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100">
+                      <Lucide.AlertTriangle className="w-3 h-3 text-amber-500" />
+                      High friction today
+                    </span>
                   </div>
-                  <Card className="p-8">
-                    <div className="flex justify-center mb-6">
-                      <div className="w-16 h-16 bg-slate-900 text-white rounded-2xl flex flex-col items-center justify-center text-[11px] font-bold shadow">
-                        <span>UAE</span>
-                        <span>PASS</span>
+                </div>
+              </div>
+              <Button
+                onClick={onOpenStory}
+                className="w-full md:w-auto"
+                icon={Lucide.ArrowRight}
+              >
+                Open journey story
+              </Button>
+            </Card>
+
+            <div className="grid md:grid-cols-2 gap-4 text-xs text-slate-400">
+              <Card className="p-4 flex items-center gap-3 bg-slate-50">
+                <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500">
+                  <Lucide.FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-500">
+                    Register baby&apos;s health insurance
+                  </div>
+                  <div>Coming soon in this prototype</div>
+                </div>
+              </Card>
+              <Card className="p-4 flex items-center gap-3 bg-slate-50">
+                <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500">
+                  <Lucide.Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-500">
+                    Notify family benefits
+                  </div>
+                  <div>Coming soon in this prototype</div>
+                </div>
+              </Card>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+/* ----------------- Story Page ----------------- */
+
+const JourneyStory = ({ onBack, onAsIs, onToBe, onSummary }) => {
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* breadcrumb */}
+        <div className="flex items-center gap-2 text-sm text-slate-500 mb-5">
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 text-sm"
+          >
+            <Lucide.ArrowLeft className="w-4 h-4" />
+            Home
+          </button>
+          <span className="text-slate-400">/</span>
+          <span className="font-medium text-slate-700">
+            Newborn Journey Story
+          </span>
+        </div>
+
+        <Card className="p-6 md:p-8 mb-6 bg-gradient-to-br from-emerald-800 to-emerald-600 text-white border-none">
+          <div className="text-xs font-semibold tracking-[0.22em] uppercase text-emerald-100 mb-3">
+            A Seamless Start to Life
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold leading-tight mb-4">
+            One journey for every newborn in Abu Dhabi
+          </h1>
+          <p className="text-sm md:text-base text-emerald-50 max-w-2xl">
+            Every year around{" "}
+            <span className="font-semibold">45,000 families</span> in Abu Dhabi
+            go through the newborn paperwork journey. Today it is scattered and
+            stressful; our goal is to complete everything in minutes, in one
+            seamless experience.
+          </p>
+        </Card>
+
+        <div className="grid md:grid-cols-2 gap-4 mb-6">
+          <Card className="p-5">
+            <div className="text-sm font-semibold text-rose-600 mb-2">
+              As‑Is today
+            </div>
+            <ul className="text-sm text-slate-700 space-y-1">
+              <li>• 3 different platforms</li>
+              <li>• 10–23 touchpoints</li>
+              <li>• 3–4 days processing</li>
+              <li>• ~3,000 complaints per year</li>
+            </ul>
+          </Card>
+          <Card className="p-5">
+            <div className="text-sm font-semibold text-emerald-600 mb-2">
+              To‑Be vision
+            </div>
+            <ul className="text-sm text-slate-700 space-y-1">
+              <li>• 1 seamless journey</li>
+              <li>• ~4 touchpoints</li>
+              <li>• Instant issuance</li>
+              <li>• Removes ~3,000 complaints</li>
+              <li>• Satisfaction &gt; 87%</li>
+            </ul>
+          </Card>
+        </div>
+
+        <Card className="p-6 mb-6">
+          <h2 className="text-base font-semibold text-slate-900 mb-3">
+            Why this change is urgent now
+          </h2>
+          <div className="space-y-2 text-sm text-slate-700">
+            <p>
+              <span className="font-semibold">Travel &amp; passports:</span>{" "}
+              certificate delays block passports and urgent travel.
+            </p>
+            <p>
+              <span className="font-semibold">Medical access:</span> without the
+              certificate and ID, newborns can’t be insured or seen easily by
+              specialists.
+            </p>
+            <p>
+              <span className="font-semibold">Fees &amp; fairness:</span> today
+              parents pay separate fees for Arabic &amp; English certificates
+              and repeat MOFA attestation for one birth.
+            </p>
+            <p>
+              <span className="font-semibold">Trust in digital government:</span>{" "}
+              thousands of avoidable complaints erode confidence in the wider
+              platform.
+            </p>
+          </div>
+        </Card>
+
+        {/* main CTAs */}
+        <div className="space-y-3 mb-10">
+          <Button
+            onClick={onAsIs}
+            className="w-full"
+            icon={Lucide.Hourglass}
+          >
+            Walk the As‑Is journey
+          </Button>
+          <Button
+            onClick={onToBe}
+            variant="secondary"
+            className="w-full"
+            icon={Lucide.Zap}
+          >
+            Jump to To‑Be experience
+          </Button>
+          <Button
+            onClick={onSummary}
+            variant="ghost"
+            className="w-full border border-transparent hover:border-slate-200"
+            icon={Lucide.BarChart3}
+          >
+            Summary
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ----------------- Summary Page ----------------- */
+
+const SummaryPage = ({ onBack }) => {
+  const [expandedId, setExpandedId] = useState("journey");
+
+  const transformations = [
+    {
+      id: "journey",
+      title: "Unified newborn journey",
+      icon: Lucide.Baby,
+      keyOutcome: "1 seamless journey",
+      current:
+        "Parents move between DOH, ICP and MOFA across three portals and 10–23 touchpoints, with 3–4 days of processing and around 3,000 complaints per year.",
+      future:
+        "A single newborn journey in TAMM, triggered automatically from the hospital, completes birth certificate, Emirates ID and passport in one flow.",
+      crmLabel: "CRM voice of parent",
+      crm: "“I select the birth notification number and the system errors — I can’t even start the application. We end up begging the hospital and call centre for help while the baby still has no documents.”"
+    },
+    {
+      id: "naming",
+      title: "Smart naming & data quality",
+      icon: Lucide.Type,
+      keyOutcome: "Zero name mismatch",
+      current:
+        "Names are typed manually in Arabic and English, with no instant validation, leading to rejections, corrections and repeat applications.",
+      future:
+        "AI‑assisted naming, aligned with ICP rules, validates Arabic and English in real time so families see and confirm the final legal name before payment.",
+      crmLabel: "CRM voice of parent",
+      crm: "“My baby’s certificate was rejected because the spelling didn’t match ICP rules. I paid the fees, waited days, then had to start all over again.”"
+    },
+    {
+      id: "documents",
+      title: "Documents & fees in one place",
+      icon: Lucide.FolderCheck,
+      keyOutcome: "No re‑uploads",
+      current:
+        "Parents upload the same passports, Emirates IDs and marriage contract multiple times across systems, and pay separate language fees plus MOFA attestation.",
+      future:
+        "All required documents and fees are bundled once in TAMM, using data pulled from ICP and Malaffi, with a single bilingual birth certificate.",
+      crmLabel: "CRM voice of parent",
+      crm: "“The system keeps asking me for documents the government already has. I’m paying different fees on different screens for the same baby.”"
+    },
+    {
+      id: "issuance",
+      title: "Instant issuance & trust",
+      icon: Lucide.BadgeCheck,
+      keyOutcome: "Complaints removed",
+      current:
+        "Families wait 3–4 days for approval, with complaints about ‘pending’ payments, missing attestations and unclear timelines.",
+      future:
+        "Birth certificate, Emirates ID and passport are issued instantly to the digital locker, with optional auto‑MOFA attestation and payment reconciliation with AD Pay.",
+      crmLabel: "CRM voice of parent",
+      crm: "“We couldn’t travel for a medical appointment because the newborn passport was still stuck as ‘pending’. No one could tell us when it would be fixed.”"
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800"
+          >
+            <Lucide.ArrowLeft className="w-4 h-4" />
+            Story
+          </button>
+          <span className="text-slate-400">/</span>
+          <span className="font-medium text-slate-700">
+            Newborn Digital Birth Certificate
+          </span>
+        </div>
+
+        <header className="mb-8">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
+            <div>
+              <div className="inline-flex items-center gap-2 mb-3">
+                <span className="bg-emerald-700 text-white px-3 py-1 rounded-md text-[11px] font-bold tracking-[0.22em] uppercase">
+                  Transformation strategy
+                </span>
+              </div>
+              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 leading-tight mb-1">
+                Seamless start for every newborn
+              </h1>
+              <p className="text-sm md:text-base text-slate-500 max-w-xl">
+                Transitioning from fragmented newborn services to a unified,
+                family‑first journey by connecting hospital, ICP, MOFA and TAMM
+                data.
+              </p>
+            </div>
+
+            <Card className="px-5 py-4 md:w-80">
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400 mb-1">
+                Executive briefing
+              </p>
+              <p className="text-sm text-slate-800">
+                Your Excellency, these are the key levers to remove
+                ~3,000 newborn complaints a year.
+              </p>
+            </Card>
+          </div>
+        </header>
+
+        <section className="space-y-4 mb-8">
+          {transformations.map((item) => {
+            const Icon = item.icon;
+            const isOpen = expandedId === item.id;
+            return (
+              <Card
+                key={item.id}
+                className={
+                  "overflow-hidden transition-all " +
+                  (isOpen
+                    ? "border-emerald-500 ring-2 ring-emerald-100"
+                    : "hover:border-slate-300")
+                }
+              >
+                <button
+                  onClick={() =>
+                    setExpandedId(isOpen ? null : item.id)
+                  }
+                  className="w-full px-5 py-4 flex items-center justify-between text-left"
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={
+                        "w-10 h-10 rounded-xl flex items-center justify-center shadow-sm " +
+                        (isOpen
+                          ? "bg-emerald-600 text-white"
+                          : "bg-slate-100 text-slate-600")
+                      }
+                    >
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        {item.title}
+                      </div>
+                      <div className="text-[11px] uppercase tracking-[0.22em] text-slate-400 mt-1">
+                        Key outcome:{" "}
+                        <span className="text-emerald-600 font-semibold tracking-normal">
+                          {item.keyOutcome}
+                        </span>
                       </div>
                     </div>
-                    <Button
-                      variant="black"
-                      className="w-full h-14 text-base"
-                      onClick={handleLogin}
-                      icon={Lucide.ScanFace}
-                    >
-                      Login with UAE PASS
-                    </Button>
-                  </Card>
-                  <p className="mt-4 text-center text-xs text-slate-400">
-                    Your identity is verified by UAE PASS. No password is stored
-                    in TAMM.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center">
-                  <div className="w-32 h-32 bg-white rounded-3xl shadow-xl border-4 border-slate-900 relative overflow-hidden mb-8 flex items-center justify-center">
-                    <Lucide.Fingerprint className="w-16 h-16 text-slate-800 opacity-25" />
-                    <div className="scan-line" />
                   </div>
-                  <h2 className="text-xl font-bold text-slate-900 mb-2">
-                    Verifying identity…
-                  </h2>
-                  <p className="text-slate-500 text-sm">
-                    Please look at the camera.
-                  </p>
+                  <div className="p-2 rounded-full bg-slate-50 text-slate-400">
+                    {isOpen ? (
+                      <Lucide.ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <Lucide.ChevronDown className="w-4 h-4" />
+                    )}
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div className="px-5 pb-5 pt-1 border-t border-slate-100 bg-slate-50/60">
+                    <div className="grid md:grid-cols-2 gap-5 mb-4">
+                      <div className="bg-white rounded-xl border border-slate-100 p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                          <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                            Current state
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-700 leading-relaxed">
+                          {item.current}
+                        </p>
+                      </div>
+                      <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Lucide.Sparkles className="w-4 h-4 text-emerald-600" />
+                          <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-700">
+                            Future state
+                          </span>
+                        </div>
+                        <p className="text-sm text-emerald-900 leading-relaxed font-medium">
+                          {item.future}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-purple-50 rounded-xl border border-purple-200 px-4 py-3">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-purple-600 mb-1">
+                        {item.crmLabel}
+                      </div>
+                      <p className="text-sm text-purple-900 leading-relaxed">
+                        {item.crm}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </section>
+
+        <section className="mb-10">
+          <Card className="p-6 bg-white">
+            <div className="flex items-center gap-2 mb-4">
+              <Lucide.Zap className="w-4 h-4 text-amber-500" />
+              <h2 className="text-sm font-semibold text-slate-900">
+                Projected ecosystem impact
+              </h2>
+            </div>
+            <div className="grid md:grid-cols-3 gap-4 text-sm">
+              <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
+                <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400 mb-1">
+                  Touchpoints
+                </div>
+                <div className="text-2xl font-black text-slate-900">
+                  23 → 4
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Unified TAMM newborn journey
+                </div>
+              </div>
+              <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
+                <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400 mb-1">
+                  Complaints
+                </div>
+                <div className="text-2xl font-black text-slate-900">
+                  ~3,000 → 0
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  By design, not by escalation
+                </div>
+              </div>
+              <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
+                <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400 mb-1">
+                  Time to documents
+                </div>
+                <div className="text-2xl font-black text-slate-900">
+                  Days → Minutes
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  From hospital discharge to wallet
+                </div>
+              </div>
+            </div>
+          </Card>
+        </section>
+      </div>
+    </div>
+  );
+};
+
+/* ----------------- As‑Is Journey ----------------- */
+
+const AsIsHeader = ({ step }) => {
+  const steps = [
+    { id: 1, label: "Notification" },
+    { id: 2, label: "Documents" },
+    { id: 3, label: "Baby details" },
+    { id: 4, label: "Payment" },
+    { id: 5, label: "Certificate" }
+  ];
+  return (
+    <div className="flex items-center justify-between mb-6">
+      {steps.map((s) => (
+        <div key={s.id} className="flex flex-col items-center gap-1">
+          <div
+            className={
+              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold " +
+              (step === s.id
+                ? "bg-emerald-700 text-white"
+                : step > s.id
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-slate-100 text-slate-500")
+            }
+          >
+            {step > s.id ? <Lucide.Check className="w-4 h-4" /> : s.id}
+          </div>
+          <div className="text-[11px] text-slate-500">{s.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const AsIsJourney = ({ onBack }) => {
+  const [step, setStep] = useState(1);
+  const [selectedNotif, setSelectedNotif] = useState("");
+  const [nameEn, setNameEn] = useState("");
+  const [nameAr, setNameAr] = useState("");
+  const [fees, setFees] = useState({
+    ar: false,
+    en: false,
+    mofa: false
+  });
+
+  const toggleFee = (key) =>
+    setFees((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const total =
+    (fees.ar ? 50 : 0) + (fees.en ? 50 : 0) + (fees.mofa ? 150 : 0);
+
+  const nextStep = () => setStep((s) => Math.min(5, s + 1));
+
+  /* ---- Step 1 ---- */
+  if (step === 1) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-md mx-auto px-4 py-6">
+          <button
+            onClick={onBack}
+            className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-4"
+          >
+            <Lucide.ArrowLeft className="w-3 h-3" />
+            Options
+          </button>
+          <AsIsHeader step={step} />
+          <Card className="p-6 animate-fade-in">
+            <h1 className="text-xl font-bold mb-2">
+              Step 1 · Select birth notification
+            </h1>
+            <p className="text-sm text-slate-600 mb-3">
+              Parents must find and select the correct birth notification
+              number before they can continue.
+            </p>
+            <p className="text-sm text-rose-600 font-semibold mb-4">
+              What parents say:{" "}
+              <span className="font-normal text-slate-700">
+                “I select the birth notification number and the system errors —
+                I can’t even start the application.”
+              </span>
+            </p>
+
+            <div className="space-y-4">
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
+                <div className="text-xs font-semibold text-slate-500 mb-2">
+                  Birth notification number
+                </div>
+                <div className="space-y-2">
+                  {[
+                    "AD/BTH-NC/0030214/2024",
+                    "AD/BTH-NC/0031020/2024",
+                    "AG/BTH/MC/0032292/2024"
+                  ].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setSelectedNotif(num)}
+                      className={
+                        "w-full flex items-center justify-between px-3 py-2 rounded-xl border text-sm " +
+                        (selectedNotif === num
+                          ? "border-emerald-600 bg-emerald-50 text-slate-900"
+                          : "border-slate-200 bg-white text-slate-700")
+                      }
+                    >
+                      <span>{num}</span>
+                      <span
+                        className={
+                          "w-4 h-4 rounded-full border flex items-center justify-center " +
+                          (selectedNotif === num
+                            ? "border-emerald-600 bg-emerald-600"
+                            : "border-slate-300")
+                        }
+                      >
+                        {selectedNotif === num && (
+                          <Lucide.Check className="w-3 h-3 text-white" />
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Button
+                onClick={nextStep}
+                className="w-full"
+                disabled={!selectedNotif}
+              >
+                Next
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- Step 2 ---- */
+  if (step === 2) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-md mx-auto px-4 py-6">
+          <button
+            onClick={onBack}
+            className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-4"
+          >
+            <Lucide.ArrowLeft className="w-3 h-3" />
+            Options
+          </button>
+          <AsIsHeader step={step} />
+          <Card className="p-6 animate-fade-in">
+            <h1 className="text-xl font-bold mb-2">
+              Step 2 · Upload documents
+            </h1>
+            <p className="text-sm text-slate-600 mb-3">
+              Parents must re‑upload passports, Emirates IDs and marriage
+              contract, even though these exist in government systems.
+            </p>
+            <p className="text-sm text-rose-600 font-semibold mb-4">
+              What parents say:{" "}
+              <span className="font-normal text-slate-700">
+                “Why am I uploading the same documents again and again? ICP
+                already has all of this.”
+              </span>
+            </p>
+
+            <div className="space-y-3 mb-4">
+              {[
+                "Father’s passport",
+                "Mother’s passport",
+                "Marriage contract",
+                "Family book",
+                "Father’s Emirates ID",
+                "Mother’s Emirates ID"
+              ].map((doc) => (
+                <div
+                  key={doc}
+                  className="flex items-center justify-between px-3 py-2 rounded-xl border border-dashed border-slate-300 bg-slate-50"
+                >
+                  <span className="text-xs font-medium text-slate-700">
+                    {doc}
+                  </span>
+                  <span className="text-xs font-semibold text-blue-600 flex items-center gap-1 cursor-pointer">
+                    <Lucide.Upload className="w-3 h-3" />
+                    Upload
+                  </span>
+                </div>
+              ))}
+            </div>
+            <Button onClick={nextStep} className="w-full">
+              Next
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- Step 3 ---- */
+  if (step === 3) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-md mx-auto px-4 py-6">
+          <button
+            onClick={onBack}
+            className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-4"
+          >
+            <Lucide.ArrowLeft className="w-3 h-3" />
+            Options
+          </button>
+          <AsIsHeader step={step} />
+          <Card className="p-6 animate-fade-in">
+            <h1 className="text-xl font-bold mb-2">
+              Step 3 · Baby details
+            </h1>
+            <p className="text-sm text-slate-600 mb-3">
+              Parents type the baby’s name manually in English and Arabic, with
+              no instant validation.
+            </p>
+            <p className="text-sm text-rose-600 font-semibold mb-4">
+              What parents say:{" "}
+              <span className="font-normal text-slate-700">
+                “My application was rejected because the Arabic and English
+                names didn’t match ICP rules — but nobody showed me the rule
+                before I paid.”
+              </span>
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Baby name (English)
+                </label>
+                <input
+                  type="text"
+                  value={nameEn}
+                  onChange={(e) => setNameEn(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="Type name…"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Baby name (Arabic)
+                </label>
+                <input
+                  type="text"
+                  value={nameAr}
+                  onChange={(e) => setNameAr(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-right"
+                  placeholder="أدخل الاسم…"
+                />
+              </div>
+              <div className="flex gap-4">
+                <div className="w-1/2">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Nationality
+                  </label>
+                  <select className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    <option>United Arab Emirates</option>
+                  </select>
+                </div>
+                <div className="w-1/2">
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Religion
+                  </label>
+                  <select className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    <option>Islam</option>
+                  </select>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400 italic">
+                Please ensure Arabic and English names match phonetically. If
+                they don’t, the application may be rejected after payment.
+              </p>
+              <Button
+                onClick={nextStep}
+                className="w-full"
+                disabled={!nameEn || !nameAr}
+              >
+                Next
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- Step 4 ---- */
+  if (step === 4) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-md mx-auto px-4 py-6">
+          <button
+            onClick={onBack}
+            className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-4"
+          >
+            <Lucide.ArrowLeft className="w-3 h-3" />
+            Options
+          </button>
+          <AsIsHeader step={step} />
+          <Card className="p-6 animate-fade-in">
+            <h1 className="text-xl font-bold mb-2">Step 4 · Separate payments</h1>
+            <p className="text-sm text-slate-600 mb-3">
+              Parents pay separately for Arabic and English certificates, then
+              again for MOFA attestation.
+            </p>
+            <p className="text-sm text-rose-600 font-semibold mb-4">
+              What parents say:{" "}
+              <span className="font-normal text-slate-700">
+                “It’s one baby, but I’m paying fees multiple times for the same
+                certificate.”
+              </span>
+            </p>
+
+            <div className="space-y-3 mb-4">
+              {[
+                { key: "ar", label: "Arabic certificate", amount: 50 },
+                { key: "en", label: "English certificate", amount: 50 },
+                { key: "mofa", label: "MOFA attestation", amount: 150 }
+              ].map((item) => (
+                <button
+                  type="button"
+                  key={item.key}
+                  onClick={() => toggleFee(item.key)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={
+                        "w-4 h-4 rounded-full border flex items-center justify-center " +
+                        (fees[item.key]
+                          ? "border-emerald-600 bg-emerald-600"
+                          : "border-slate-300")
+                      }
+                    >
+                      {fees[item.key] && (
+                        <Lucide.Check className="w-3 h-3 text-white" />
+                      )}
+                    </span>
+                    <span>{item.label}</span>
+                  </div>
+                  <span className="font-semibold text-slate-900">
+                    {item.amount} AED
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-between text-sm text-slate-700 mb-4">
+              <span className="font-semibold">Total selected</span>
+              <span className="font-bold text-emerald-700">
+                {total || 0} AED
+              </span>
+            </div>
+            <Button onClick={nextStep} className="w-full">
+              Next
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---- Step 5 ---- */
+  if (step === 5) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="max-w-md mx-auto px-4 py-6">
+          <button
+            onClick={onBack}
+            className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-4"
+          >
+            <Lucide.ArrowLeft className="w-3 h-3" />
+            Options
+          </button>
+          <AsIsHeader step={step} />
+          <Card className="p-6 animate-fade-in">
+            <h1 className="text-xl font-bold mb-2">
+              Step 5 · Certificate after review
+            </h1>
+            <p className="text-sm text-slate-600 mb-4">
+              After payment, parents wait 2–3 working days for approval and
+              manual checks. Errors or name mismatches lead to rejection and a
+              new application.
+            </p>
+            <p className="text-sm text-rose-600 font-semibold mb-4">
+              What parents say:{" "}
+              <span className="font-normal text-slate-700">
+                “We kept checking the app and calling the call centre — nobody
+                could tell us when the certificate would be ready.”
+              </span>
+            </p>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-sm text-amber-900">
+              <div className="flex items-center gap-2 mb-1">
+                <Lucide.Clock className="w-4 h-4" />
+                <span className="font-semibold">Status: Under review</span>
+              </div>
+              <p>Estimated time: 2–3 working days.</p>
+            </div>
+
+            <Button onClick={onBack} variant="secondary" className="w-full">
+              Back to options
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+/* ----------------- To‑Be Journey ----------------- */
+
+const ToBeHeader = ({ step }) => {
+  const steps = [
+    { id: 1, label: "Start" },
+    { id: 2, label: "Naming" },
+    { id: 3, label: "Documents" },
+    { id: 4, label: "Payment" },
+    { id: 5, label: "Issued" }
+  ];
+  return (
+    <div className="flex items-center justify-between mb-6">
+      {steps.map((s) => (
+        <div key={s.id} className="flex flex-col items-center gap-1">
+          <div
+            className={
+              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold " +
+              (step === s.id
+                ? "bg-emerald-700 text-white"
+                : step > s.id
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-slate-100 text-slate-500")
+            }
+          >
+            {step > s.id ? <Lucide.Check className="w-4 h-4" /> : s.id}
+          </div>
+          <div className="text-[11px] text-slate-500">{s.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const NAME_SUGGESTIONS = {
+  boy: {
+    Z: [
+      {
+        en: "Zayed",
+        ar: "زايد",
+        meaning: "Growth; one who increases in goodness."
+      },
+      {
+        en: "Ziad",
+        ar: "زياد",
+        meaning: "Abundance; generosity."
+      }
+    ],
+    K: [
+      {
+        en: "Khalifa",
+        ar: "خليفة",
+        meaning: "Successor; leader."
+      },
+      {
+        en: "Khalid",
+        ar: "خالد",
+        meaning: "Everlasting; steadfast."
+      }
+    ],
+    H: [
+      {
+        en: "Hamdan",
+        ar: "حمدان",
+        meaning: "One who often gives thanks."
+      },
+      {
+        en: "Hassan",
+        ar: "حسن",
+        meaning: "Good; handsome."
+      }
+    ]
+  },
+  girl: {
+    Z: [
+      {
+        en: "Zainab",
+        ar: "زينب",
+        meaning: "Fragrant flower; beauty and grace."
+      },
+      {
+        en: "Zahra",
+        ar: "زهرة",
+        meaning: "Radiant; blossoming."
+      }
+    ],
+    K: [
+      {
+        en: "Khawla",
+        ar: "خولة",
+        meaning: "Graceful; gazelle‑like."
+      },
+      {
+        en: "Karima",
+        ar: "كريمة",
+        meaning: "Generous; noble."
+      }
+    ],
+    H: [
+      {
+        en: "Hessa",
+        ar: "حصه",
+        meaning: "Destiny; share or portion."
+      },
+      {
+        en: "Huda",
+        ar: "هدى",
+        meaning: "Guidance; the right path."
+      }
+    ]
+  }
+};
+
+const ToBeJourney = ({ onBack }) => {
+  const [step, setStep] = useState(0);
+  const [nameEn, setNameEn] = useState("");
+  const [nameAr, setNameAr] = useState("");
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiGender, setAiGender] = useState("boy");
+  const [aiLetter, setAiLetter] = useState("Z");
+  const [addMofa, setAddMofa] = useState(false);
+  const [showReconcile, setShowReconcile] = useState(false);
+  const [reconcileState, setReconcileState] = useState("idle"); // idle | done
+
+  const isNameConfirmed = nameEn && nameAr;
+
+  const nextStep = () => setStep((s) => Math.min(5, s + 1));
+
+  const generateNames = () => {
+    const list =
+      NAME_SUGGESTIONS[aiGender][aiLetter] || [];
+    setAiSuggestions(list);
+  };
+
+  // 0. Notification preview
+  if (step === 0) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center p-6 bg-slate-100">
+        <div className="absolute top-6 left-4">
+          <button
+            onClick={onBack}
+            className="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1"
+          >
+            <Lucide.ArrowLeft className="w-3 h-3" />
+            Options
+          </button>
+        </div>
+        <div className="max-w-sm w-full">
+          <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/60 cursor-pointer hover:scale-[1.01] transition-transform animate-slide-up">
+            <div className="flex gap-3">
+              <div className="bg-emerald-100 rounded-xl w-9 h-9 flex items-center justify-center text-emerald-700">
+                <Lucide.Baby className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-slate-700">
+                  Mabrouk Ma Yak!
+                </div>
+                <div className="text-xs text-slate-600 mt-1">
+                  We received a birth notification for your newborn. Tap to
+                  name your baby and issue all documents in one journey.
+                </div>
+                <div className="text-[10px] text-slate-400 mt-2">
+                  Just now · from Malaffi
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 mt-6 text-center">
+            In the To‑Be journey, parents don’t search for notification
+            numbers. The hospital triggers the journey automatically.
+          </p>
+          <Button
+            onClick={() => setStep(1)}
+            className="w-full mt-6"
+          >
+            Start To‑Be journey
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // common frame for steps 1‑5
+  const Frame = ({ children }) => (
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-md mx-auto px-4 py-6">
+        <button
+          onClick={onBack}
+          className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 mb-4"
+        >
+          <Lucide.ArrowLeft className="w-3 h-3" />
+          Options
+        </button>
+        <ToBeHeader step={step} />
+        {children}
+      </div>
+    </div>
+  );
+
+  // Step 1 – proactive notification
+  if (step === 1) {
+    return (
+      <Frame>
+        <Card className="p-6 animate-fade-in">
+          <h1 className="text-xl font-bold mb-2">
+            Step 1 · Proactive notification
+          </h1>
+          <p className="text-sm text-slate-600 mb-4">
+            When the birth notification is completed in the hospital, the
+            Mabrouk Ma Yak journey starts automatically. Parents simply tap the
+            message to begin.
+          </p>
+
+          <div className="bg-slate-900 text-white rounded-2xl p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-1">
+                <span className="text-lg">👶</span>
+              </div>
+              <div>
+                <div className="text-sm font-semibold">Mabrouk Ma Yak!</div>
+                <p className="text-sm mt-1">
+                  We received a birth notification for your newborn. Tap to name
+                  your baby and issue all documents in one journey.
+                </p>
+                <p className="text-[11px] text-slate-300 mt-2">
+                  Just now · from Malaffi
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Button onClick={nextStep} className="w-full">
+            Next
+          </Button>
+        </Card>
+      </Frame>
+    );
+  }
+
+  // Step 2 – smart naming with AI
+  if (step === 2) {
+    return (
+      <Frame>
+        <Card className="p-6 animate-fade-in">
+          <h1 className="text-xl font-bold mb-2">
+            Step 2 · Smart naming with AI
+          </h1>
+          <p className="text-sm text-slate-600 mb-4">
+            Parents can type a name or use AI suggestions, with instant ICP
+            validation before they move on.
+          </p>
+
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-slate-700">
+                Manual entry
+              </label>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">
+                  Name (English)
+                </label>
+                <input
+                  type="text"
+                  value={nameEn}
+                  onChange={(e) => setNameEn(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="e.g. Zayed"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">
+                  Name (Arabic)
+                </label>
+                <input
+                  type="text"
+                  value={nameAr}
+                  onChange={(e) => setNameAr(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-right"
+                  placeholder="e.g. زايد"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-grow border-t border-slate-200" />
+              <span className="text-[11px] text-slate-400 uppercase tracking-[0.18em]">
+                Or use AI
+              </span>
+              <div className="flex-grow border-t border-slate-200" />
+            </div>
+
+            <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Lucide.Sparkles className="w-4 h-4 text-purple-600" />
+                  <span className="text-xs font-semibold text-purple-700">
+                    AI name helper
+                  </span>
+                </div>
+                <div className="inline-flex rounded-full bg-white p-1 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setAiGender("boy")}
+                    className={
+                      "px-3 py-1 rounded-full " +
+                      (aiGender === "boy"
+                        ? "bg-purple-600 text-white"
+                        : "text-purple-600")
+                    }
+                  >
+                    Boy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiGender("girl")}
+                    className={
+                      "px-3 py-1 rounded-full " +
+                      (aiGender === "girl"
+                        ? "bg-purple-600 text-white"
+                        : "text-purple-600")
+                    }
+                  >
+                    Girl
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <p className="text-xs text-slate-600 mb-2">
+                  Choose first letter (optional)
+                </p>
+                <div className="inline-flex gap-2">
+                  {["Z", "K", "H"].map((ltr) => (
+                    <button
+                      key={ltr}
+                      type="button"
+                      onClick={() => setAiLetter(ltr)}
+                      className={
+                        "w-8 h-8 rounded-full border text-xs font-semibold flex items-center justify-center " +
+                        (aiLetter === ltr
+                          ? "bg-purple-600 border-purple-600 text-white"
+                          : "bg-white border-purple-200 text-purple-700")
+                      }
+                    >
+                      {ltr}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                variant="secondary"
+                className="w-full border-purple-200 text-purple-700 hover:bg-purple-50 mb-3"
+                icon={Lucide.Sparkles}
+                onClick={generateNames}
+              >
+                Generate name suggestions
+              </Button>
+
+              {aiSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  {aiSuggestions.map((s, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setNameEn(s.en);
+                        setNameAr(s.ar);
+                      }}
+                      className="w-full text-left bg-white rounded-xl border border-purple-100 px-3 py-2 hover:border-purple-300"
+                    >
+                      <div className="flex items-center justify-between text-sm font-semibold text-slate-900">
+                        <span>
+                          {s.en} / {s.ar}
+                        </span>
+                        <span className="text-[11px] text-purple-600">
+                          {aiGender === "boy" ? "Boy" : "Girl"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        Meaning: {s.meaning}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
-          </div>
-        );
-      };
 
-      // ---------- Intro: Newborn Journey Story ----------
-
-      const JourneyIntro = ({ onStartAsIs, onStartToBe, onOpenSummary }) => {
-        return (
-          <div className="min-h-screen flex justify-center bg-slate-100 px-4 py-6">
-            <div className="w-full max-w-4xl">
-              <Breadcrumb label="Newborn Journey Story" onHome={() => {}} />
-
-              <Card className="mb-6 overflow-hidden bg-gradient-to-br from-emerald-700 to-teal-800 text-white">
-                <div className="p-6 md:p-7">
-                  <p className="text-[11px] tracking-[0.24em] uppercase font-semibold text-emerald-100 mb-2">
-                    A seamless start to life
-                  </p>
-                  <h1 className="text-2xl md:text-3xl font-extrabold leading-snug mb-3">
-                    One journey for every newborn in Abu Dhabi
-                  </h1>
-                  <p className="text-sm md:text-[15px] text-emerald-50 max-w-2xl">
-                    Every year around{" "}
-                    <span className="font-semibold">45,000 families</span> go
-                    through the newborn paperwork journey. Today it is scattered
-                    and stressful; our goal is to complete everything in
-                    minutes, in one seamless experience.
-                  </p>
-                </div>
-              </Card>
-
-              <div className="grid md:grid-cols-2 gap-4 mb-6">
-                <Card className="p-5">
-                  <p className="text-sm font-semibold text-rose-600 mb-3">
-                    As-Is today
-                  </p>
-                  <ul className="text-sm text-slate-700 space-y-1">
-                    <li>• 3 different platforms</li>
-                    <li>• 10–23 touchpoints</li>
-                    <li>• 3–4 days processing</li>
-                    <li>• ~3,000 complaints per year</li>
-                  </ul>
-                </Card>
-                <Card className="p-5">
-                  <p className="text-sm font-semibold text-emerald-600 mb-3">
-                    To-Be vision
-                  </p>
-                  <ul className="text-sm text-slate-700 space-y-1">
-                    <li>• 1 seamless journey</li>
-                    <li>• ~4 touchpoints</li>
-                    <li>• Instant issuance</li>
-                    <li>• Removes ~3,000 complaints</li>
-                    <li>• Satisfaction &gt; 87%</li>
-                  </ul>
-                </Card>
-              </div>
-
-              <Card className="p-6 mb-6">
-                <h2 className="text-base font-semibold text-slate-900 mb-3">
-                  Why this change is urgent now
-                </h2>
-                <div className="space-y-2 text-sm text-slate-700">
-                  <p>
-                    <span className="font-semibold">Travel & passports:</span>{" "}
-                    certificate delays block passports and urgent travel.
-                  </p>
-                  <p>
-                    <span className="font-semibold">Medical access:</span>{" "}
-                    without the certificate and ID, newborns can’t be insured or
-                    seen easily by specialists.
-                  </p>
-                  <p>
-                    <span className="font-semibold">Fees & fairness:</span>{" "}
-                    today parents pay separate fees for Arabic & English
-                    certificates and repeat MOFA attestation for one birth.
-                  </p>
-                  <p>
-                    <span className="font-semibold">
-                      Trust in digital government:
-                    </span>{" "}
-                    thousands of avoidable complaints erode confidence in the
-                    wider platform.
-                  </p>
-                </div>
-              </Card>
-
-              <Card className="p-6 mb-6">
-                <h2 className="text-base font-semibold text-slate-900 mb-3">
-                  What this prototype shows
-                </h2>
-                <p className="text-sm text-slate-700 mb-3">
-                  This prototype walks from today’s journey to the future one.
-                  At each step you see:
-                </p>
-                <ul className="text-sm text-slate-700 space-y-1 list-disc list-inside">
-                  <li>What parents do in the service.</li>
-                  <li>
-                    How that step affects their life (travel, medical care,
-                    money).
-                  </li>
-                  <li>How the To-Be journey removes that harm.</li>
-                </ul>
-              </Card>
-
-              <div className="space-y-3 mb-10">
-                <Button
-                  className="w-full"
-                  variant="primary"
-                  icon={Lucide.Hourglass}
-                  onClick={onStartAsIs}
-                >
-                  Walk the As-Is journey
-                </Button>
-                <Button
-                  className="w-full"
-                  variant="secondary"
-                  icon={Lucide.Zap}
-                  onClick={onStartToBe}
-                >
-                  Jump to To-Be experience
-                </Button>
-                <Button
-                  className="w-full"
-                  variant="ghost"
-                  icon={Lucide.BarChart3}
-                  onClick={onOpenSummary}
-                >
-                  Summary
-                </Button>
-              </div>
-            </div>
-          </div>
-        );
-      };
-
-      // ---------- Strategy Summary (Support Without Barriers layout) ----------
-
-      const StrategySummary = ({ onBack }) => {
-        const [expandedId, setExpandedId] = useState(1);
-
-        const items = [
-          {
-            id: 1,
-            title: "Unified newborn journey",
-            icon: Lucide.Baby,
-            keyOutcome: "1 seamless journey",
-            current:
-              "Parents move between DOH, ICP and MOFA across three portals and 10–23 touchpoints, with 3–4 days of processing and around 3,000 complaints per year.",
-            future:
-              "A single newborn journey in TAMM, triggered automatically from the hospital, completes birth certificate, Emirates ID and passport in one flow.",
-            crm: `“I select the birth notification number and the system errors — I can’t even start the application.”`,
-          },
-          {
-            id: 2,
-            title: "Smart naming & data quality",
-            icon: Lucide.Type,
-            keyOutcome: "Zero name mismatch",
-            current:
-              "Parents type the baby’s name twice in English and Arabic with no real-time validation. Small spelling differences trigger ICP rejections days later.",
-            future:
-              "One smart naming screen lets parents choose or type a name. Arabic and English forms are validated instantly against ICP rules before they continue.",
-            crm: `“My baby’s name was rejected after I paid. I had to submit a new application and pay again just to fix a letter.”`,
-          },
-          {
-            id: 3,
-            title: "Documents & fees in one place",
-            icon: Lucide.Files,
-            keyOutcome: "No re-uploads",
-            current:
-              "Parents upload the same passports and marriage contract again, even though government systems already hold the data. Fees are split across Arabic, English and MOFA attestation.",
-            future:
-              "Documents are pulled automatically from ICP and Ministry of Justice. Parents see one transparent bundle with birth certificate, Emirates ID, passport and optional MOFA attestation.",
-            crm: `“Why am I uploading documents and paying multiple times when you already have everything in the system?”`,
-          },
-          {
-            id: 4,
-            title: "Instant issuance & trust",
-            icon: Lucide.BadgeCheck,
-            keyOutcome: "Complaints removed",
-            current:
-              "If payment or data fails at any point, the journey stalls and families chase call centres for days. Complaints keep repeating for the same failure points.",
-            future:
-              "Issuance is instant. Payments reconcile automatically with AD Pay, and certificates can be MOFA-attested in the same flow — without new complaints.",
-            crm: `“The bank shows paid, but TAMM still says ‘pending payment’. I had to open a complaint just so I could get my baby’s documents.”`,
-          },
-        ];
-
-        const toggle = (id) => {
-          setExpandedId((prev) => (prev === id ? null : id));
-        };
-
-        return (
-          <div className="min-h-screen bg-slate-50 px-4 py-6 flex justify-center">
-            <div className="w-full max-w-5xl">
-              <button
-                onClick={onBack}
-                className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 mb-6"
-              >
-                <Lucide.ArrowLeft className="w-3 h-3" />
-                <span>Back to journey</span>
-              </button>
-
-              <header className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            {isNameConfirmed && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-xs text-emerald-800 flex items-start gap-2">
+                <Lucide.ShieldCheck className="w-4 h-4 mt-[2px]" />
                 <div>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-semibold tracking-[0.18em] uppercase mb-3">
-                    Transformation strategy
-                  </span>
-                  <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-2">
-                    Seamless Start for Every Newborn
-                  </h1>
-                  <p className="text-sm md:text-[15px] text-slate-600 max-w-xl">
-                    Transitioning from fragmented newborn services to a unified,
-                    family-first journey by connecting hospital, ICP, MOFA and
-                    TAMM data.
-                  </p>
+                  <div className="font-semibold">Name verified</div>
+                  <div>
+                    Arabic and English forms match ICP naming rules. No
+                    name‑mismatch rejections.
+                  </div>
                 </div>
-                <Card className="px-5 py-3 md:self-start">
-                  <p className="text-[10px] font-semibold text-slate-400 tracking-[0.18em] uppercase mb-1">
-                    Executive briefing
-                  </p>
-                  <p className="text-sm text-slate-800">
-                    Your Excellency, these are the key levers to remove
-                    ~3,000 newborn complaints a year.
-                  </p>
-                </Card>
-              </header>
-
-              <div className="space-y-4 mb-10">
-                {items.map((item) => {
-                  const Icon = item.icon || Lucide.Circle;
-                  const open = expandedId === item.id;
-                  return (
-                    <Card
-                      key={item.id}
-                      className={
-                        "overflow-hidden transition-all duration-200 " +
-                        (open
-                          ? "border-emerald-500 ring-2 ring-emerald-100"
-                          : "hover:border-slate-300")
-                      }
-                    >
-                      <button
-                        className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left"
-                        onClick={() => toggle(item.id)}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={
-                              "w-11 h-11 rounded-xl flex items-center justify-center " +
-                              (open
-                                ? "bg-emerald-600 text-white"
-                                : "bg-slate-100 text-slate-600")
-                            }
-                          >
-                            <Icon className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">
-                              {item.title}
-                            </p>
-                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                              Key outcome:{" "}
-                              <span className="text-emerald-600 font-semibold">
-                                {item.keyOutcome}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                        <div
-                          className={
-                            "w-8 h-8 rounded-full flex items-center justify-center " +
-                            (open
-                              ? "bg-emerald-50 text-emerald-600"
-                              : "bg-slate-50 text-slate-400")
-                          }
-                        >
-                          {open ? (
-                            <Lucide.ChevronUp className="w-4 h-4" />
-                          ) : (
-                            <Lucide.ChevronDown className="w-4 h-4" />
-                          )}
-                        </div>
-                      </button>
-                      {open && (
-                        <div className="border-t border-slate-100 px-6 pb-6 pt-4">
-                          <div className="grid md:grid-cols-2 gap-5 mb-4">
-                            <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.18em]">
-                                  Current state
-                                </span>
-                              </div>
-                              <p className="text-sm text-slate-700 leading-relaxed">
-                                {item.current}
-                              </p>
-                            </div>
-                            <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Lucide.Sparkles className="w-4 h-4 text-emerald-600" />
-                                <span className="text-[11px] font-semibold text-emerald-600 uppercase tracking-[0.18em]">
-                                  Future state
-                                </span>
-                              </div>
-                              <p className="text-sm text-slate-800 leading-relaxed">
-                                {item.future}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="bg-violet-50 border-l-4 border-violet-400 rounded-r-xl px-4 py-3 text-sm text-slate-800">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-700 mb-1">
-                              CRM voice of parent
-                            </p>
-                            <p>{item.crm}</p>
-                          </div>
-                        </div>
-                      )}
-                    </Card>
-                  );
-                })}
               </div>
+            )}
 
-              <Card className="p-6">
-                <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <Lucide.Zap className="w-4 h-4 text-yellow-500" />
-                  <span>Projected ecosystem impact</span>
-                </h2>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 mb-1">
-                      Touchpoint savings
-                    </p>
-                    <p className="text-2xl font-extrabold text-slate-900">
-                      23 → 4
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Unified newborn journey
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 mb-1">
-                      Family time
-                    </p>
-                    <p className="text-2xl font-extrabold text-slate-900">
-                      3–4 days → minutes
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      From manual chase to instant issuance
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 mb-1">
-                      Complaints removed
-                    </p>
-                    <p className="text-2xl font-extrabold text-slate-900">
-                      ~3,000 / year
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Same failure points eliminated in design
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </div>
+            <Button
+              onClick={nextStep}
+              className="w-full"
+              disabled={!isNameConfirmed}
+            >
+              Next
+            </Button>
           </div>
-        );
-      };
+        </Card>
+      </Frame>
+    );
+  }
 
-      // ---------- Shared header for step journeys ----------
+  // Step 3 – docs auto‑fetched
+  if (step === 3) {
+    return (
+      <Frame>
+        <Card className="p-6 animate-fade-in">
+          <h1 className="text-xl font-bold mb-2">
+            Step 3 · Documents auto‑fetched
+          </h1>
+          <p className="text-sm text-slate-600 mb-4">
+            All required documents are pulled automatically from ICP, Malaffi
+            and Usrati. Parents simply confirm.
+          </p>
 
-      const JourneyStepsHeader = ({ steps, step, onStepChange, title }) => {
-        return (
-          <div className="mb-5">
-            <div className="flex items-center justify-between mb-3">
-              <button
-                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-                onClick={() => onStepChange(Math.max(step - 1, 1))}
+          <div className="space-y-3 mb-5">
+            {[
+              "Father’s ID & passport",
+              "Mother’s ID & passport",
+              "Marriage contract"
+            ].map((label) => (
+              <div
+                key={label}
+                className="flex items-center justify-between px-3 py-2 rounded-xl border border-emerald-100 bg-emerald-50"
               >
-                <Lucide.ArrowLeft className="w-3 h-3" />
-                <span>Options</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+                    <Lucide.FileCheck className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm text-slate-900 font-medium">
+                    {label}
+                  </span>
+                </div>
+                <Lucide.Check className="w-5 h-5 text-emerald-700" />
+              </div>
+            ))}
+          </div>
+
+          <Button onClick={nextStep} className="w-full">
+            Proceed to bundle
+          </Button>
+        </Card>
+      </Frame>
+    );
+  }
+
+  // Step 4 – bundle + payment
+  if (step === 4) {
+    const baseTotal = 275;
+    const grandTotal = baseTotal + (addMofa ? 150 : 0);
+
+    return (
+      <Frame>
+        <Card className="p-6 animate-fade-in">
+          <h1 className="text-xl font-bold mb-2">
+            Step 4 · Single payment for bundle
+          </h1>
+          <p className="text-sm text-slate-600 mb-4">
+            One payment covers birth certificate, Emirates ID and passport, with
+            an optional auto‑attested MOFA layer.
+          </p>
+
+          <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 mb-4">
+            <div className="text-xs font-semibold text-slate-600 mb-3">
+              Bundle breakdown
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span>Birth certificate</span>
+                <span className="font-semibold text-slate-900">
+                  AED 50.00
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Emirates ID (newborn)</span>
+                <span className="font-semibold text-slate-900">
+                  AED 170.00
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Passport issuance</span>
+                <span className="font-semibold text-slate-900">
+                  AED 55.00
+                </span>
+              </div>
+              <div className="border-t border-slate-200 my-3" />
+              <div className="flex items-center justify-between font-semibold text-emerald-700">
+                <span>Bundle total</span>
+                <span>AED {baseTotal}.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setAddMofa(!addMofa)}
+            className={
+              "mb-4 p-4 rounded-2xl border-2 cursor-pointer flex items-start gap-3 " +
+              (addMofa
+                ? "border-emerald-600 bg-emerald-50"
+                : "border-slate-200 hover:border-emerald-300")
+            }
+          >
+            <div
+              className={
+                "w-5 h-5 rounded border flex items-center justify-center mt-[2px] " +
+                (addMofa
+                  ? "bg-emerald-600 border-emerald-600"
+                  : "border-slate-300 bg-white")
+              }
+            >
+              {addMofa && (
+                <Lucide.Check className="w-3 h-3 text-white" />
+              )}
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-900">
+                Auto‑attest with MOFA
+              </div>
+              <p className="text-xs text-slate-600 mt-1">
+                Digital attestation stamp from Ministry of Foreign Affairs,
+                applied automatically to the birth certificate.
+              </p>
+              <div className="text-xs font-bold text-emerald-700 mt-1">
+                +150.00 AED
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between bg-slate-900 text-white rounded-xl px-4 py-3 mb-3">
+            <span className="text-sm">Total amount</span>
+            <span className="text-xl font-bold">
+              AED {grandTotal}.00
+            </span>
+          </div>
+
+          <Button
+            variant="black"
+            className="w-full mb-3"
+            icon={Lucide.Apple}
+            onClick={() => {
+              setShowReconcile(true);
+              setReconcileState("idle");
+            }}
+          >
+            Pay with Apple Pay
+          </Button>
+
+          {showReconcile && (
+            <div className="space-y-2 mb-3">
+              <Button
+                variant="secondary"
+                className="w-full"
+                icon={Lucide.RefreshCw}
+                onClick={() => {
+                  setReconcileState("done");
+                }}
+              >
+                Reconcile with AD Pay
+              </Button>
+              {reconcileState === "done" && (
+                <div className="text-xs text-emerald-700 flex items-center gap-2">
+                  <span>✅</span>
+                  <span>
+                    Payment reconciled with AD Pay. Journey continues without a
+                    complaint.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <Button onClick={nextStep} className="w-full mt-2">
+            Next
+          </Button>
+        </Card>
+      </Frame>
+    );
+  }
+
+  // Step 5 – success
+  if (step === 5) {
+    return (
+      <Frame>
+        <Card className="p-6 animate-fade-in text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-sky-500" />
+          <div className="mt-2 mb-4 flex justify-center">
+            <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center">
+              <Lucide.Check className="w-10 h-10 text-emerald-600" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-1">
+            Mabrouk! Documents issued instantly
+          </h1>
+          <p className="text-sm text-slate-600 mb-5">
+            Birth certificate, Emirates ID and passport are issued together and
+            stored in the digital locker.
+          </p>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 text-left">
+            <div className="text-xs font-semibold text-slate-600 mb-2">
+              Digital locker
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-white border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <Lucide.FileCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Birth certificate (PDF)</span>
+                  <span className="text-[11px] text-emerald-600">
+                    MOFA‑attested
+                  </span>
+                </div>
+                <Lucide.Download className="w-4 h-4 text-slate-400" />
+              </div>
+              <button className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-black text-white text-sm">
+                <div className="flex items-center gap-2">
+                  <Lucide.Wallet className="w-4 h-4" />
+                  <span>Add bundle to Apple Wallet</span>
+                </div>
+                <Lucide.Plus className="w-4 h-4" />
               </button>
-              <div className="text-xs font-semibold text-slate-500">
-                {title}
-              </div>
-            </div>
-            <div className="flex items-center justify-between px-2 mb-4 relative">
-              <div className="absolute left-6 right-6 top-5 h-0.5 bg-slate-200" />
-              {steps.map((s) => {
-                const active = step === s.id;
-                const complete = step > s.id;
-                return (
-                  <button
-                    key={s.id}
-                    className="relative z-10 flex flex-col items-center gap-1"
-                    onClick={() => onStepChange(s.id)}
-                  >
-                    <div
-                      className={
-                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold " +
-                        (active
-                          ? "bg-teal-700 text-white"
-                          : complete
-                          ? "bg-teal-100 text-teal-700"
-                          : "bg-slate-100 text-slate-500")
-                      }
-                    >
-                      {complete ? (
-                        <Lucide.Check className="w-4 h-4" />
-                      ) : (
-                        s.id
-                      )}
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      {s.label}
-                    </div>
-                  </button>
-                );
-              })}
             </div>
           </div>
-        );
-      };
 
-      // ---------- As-Is Journey ----------
-
-      const AsIsJourney = ({
-        initialStep = 1,
-        onBackToIntro,
-        onCompareToBe,
-      }) => {
-        const [step, setStep] = useState(initialStep);
-        const [langSelection, setLangSelection] = useState({
-          ar: true,
-          en: true,
-          mofa: true,
-        });
-
-        useEffect(() => {
-          setStep(initialStep);
-        }, [initialStep]);
-
-        const steps = [
-          { id: 1, label: "Notification" },
-          { id: 2, label: "Documents" },
-          { id: 3, label: "Baby details" },
-          { id: 4, label: "Payment" },
-          { id: 5, label: "Certificate" },
-        ];
-
-        const toggleLang = (key) => {
-          setLangSelection((prev) => ({ ...prev, [key]: !prev[key] }));
-        };
-
-        const total =
-          (langSelection.ar ? 50 : 0) +
-          (langSelection.en ? 50 : 0) +
-          (langSelection.mofa ? 150 : 0);
-
-        const goNext = () => setStep((s) => Math.min(5, s + 1));
-
-        return (
-          <div className="min-h-screen flex justify-center bg-slate-100 px-4 py-6">
-            <div className="w-full max-w-md">
-              <Breadcrumb label="As-Is journey" onHome={onBackToIntro} />
-              <JourneyStepsHeader
-                steps={steps}
-                step={step}
-                onStepChange={setStep}
-                title="As-Is journey"
-              />
-
-              <Card className="p-6 mb-4">
-                {step === 1 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 1 · Select birth notification
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-2">
-                      Parents must find and select the correct birth
-                      notification number before they can continue.
-                    </p>
-                    <p className="text-sm text-rose-600 font-semibold mb-4">
-                      What parents say:{" "}
-                      <span className="font-normal">
-                        “I select the birth notification number and the system
-                        errors — I can’t even start the application.”
-                      </span>
-                    </p>
-                    <div className="mt-3 border rounded-2xl border-slate-200">
-                      <div className="px-4 pt-4 pb-1 text-xs font-semibold text-slate-500 uppercase">
-                        Birth notification number
-                      </div>
-                      {[
-                        "AD/BTH-NC/0030214/2024",
-                        "AD/BTH-NC/0031020/2024",
-                        "AG/BTH/MC/0032292/2024",
-                      ].map((num) => (
-                        <label
-                          key={num}
-                          className="flex items-center justify-between px-4 py-3 text-sm cursor-pointer border-t border-slate-100 hover:bg-slate-50"
-                        >
-                          <span className="text-slate-800">{num}</span>
-                          <input
-                            type="radio"
-                            name="notif"
-                            className="w-4 h-4 text-teal-700"
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {step === 2 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 2 · Upload documents
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-2">
-                      Parents upload the same documents that government already
-                      holds in its systems.
-                    </p>
-                    <p className="text-sm text-rose-600 font-semibold mb-4">
-                      What parents say:{" "}
-                      <span className="font-normal">
-                        “Why do I have to upload all these files again? ICP
-                        already has everything about us.”
-                      </span>
-                    </p>
-                    <div className="space-y-2">
-                      {[
-                        "Father’s passport",
-                        "Mother’s passport",
-                        "Marriage contract",
-                        "Family book",
-                        "Father’s Emirates ID",
-                        "Mother’s Emirates ID",
-                      ].map((doc) => (
-                        <div
-                          key={doc}
-                          className="flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 text-xs"
-                        >
-                          <span className="text-slate-700">{doc}</span>
-                          <span className="text-blue-600 font-semibold">
-                            Upload
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {step === 3 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 3 · Enter baby details
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-2">
-                      Parents type the baby’s name twice in English and Arabic
-                      without any guidance.
-                    </p>
-                    <p className="text-sm text-rose-600 font-semibold mb-4">
-                      What parents say:{" "}
-                      <span className="font-normal">
-                        “My application was rejected days later because the
-                        Arabic and English names didn’t match the rules.”
-                      </span>
-                    </p>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                          Baby name (English)
-                        </label>
-                        <input
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
-                          placeholder="Type name…"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                          Baby name (Arabic)
-                        </label>
-                        <input
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-right"
-                          placeholder="أدخل الاسم…"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {step === 4 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 4 · Separate payments
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-2">
-                      Parents pay separately for Arabic and English
-                      certificates, then again for MOFA attestation.
-                    </p>
-                    <p className="text-sm text-rose-600 font-semibold mb-4">
-                      What parents say:{" "}
-                      <span className="font-normal">
-                        “It’s one baby, but I’m paying fees multiple times for
-                        the same certificate.”
-                      </span>
-                    </p>
-                    <div className="border border-slate-200 rounded-2xl overflow-hidden">
-                      <div className="px-4 pt-4 pb-2 text-xs font-semibold text-slate-500 uppercase">
-                        Certificates & fees
-                      </div>
-                      <label className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-sm cursor-pointer hover:bg-slate-50">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={langSelection.ar}
-                            onChange={() => toggleLang("ar")}
-                            className="w-4 h-4 text-teal-700"
-                          />
-                          <span>Arabic certificate</span>
-                        </div>
-                        <span className="font-semibold">50 AED</span>
-                      </label>
-                      <label className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-sm cursor-pointer hover:bg-slate-50">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={langSelection.en}
-                            onChange={() => toggleLang("en")}
-                            className="w-4 h-4 text-teal-700"
-                          />
-                          <span>English certificate</span>
-                        </div>
-                        <span className="font-semibold">50 AED</span>
-                      </label>
-                      <label className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-sm cursor-pointer hover:bg-slate-50">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={langSelection.mofa}
-                            onChange={() => toggleLang("mofa")}
-                            className="w-4 h-4 text-teal-700"
-                          />
-                          <span>MOFA attestation</span>
-                        </div>
-                        <span className="font-semibold">150 AED</span>
-                      </label>
-                      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-sm font-semibold">
-                        <span>Total</span>
-                        <span>{total} AED</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {step === 5 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 5 · Delayed certificate
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-2">
-                      After payment, parents wait days for manual checks. Any
-                      mismatch leads to rejection and a new application.
-                    </p>
-                    <p className="text-sm text-rose-600 font-semibold mb-4">
-                      What parents say:{" "}
-                      <span className="font-normal">
-                        “By the time the application was rejected, my travel
-                        date was already gone.”
-                      </span>
-                    </p>
-                    <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-800">
-                      <div className="flex items-start gap-2">
-                        <Lucide.AlertCircle className="w-5 h-5 mt-0.5" />
-                        <p>
-                          Family impact: if the system fails here, the whole
-                          journey stops. Parents lose days chasing support
-                          before they can even start again.
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </Card>
-
-              <div className="space-y-3 mb-10">
-                {step < 5 ? (
-                  <Button className="w-full" onClick={goNext}>
-                    Next
-                  </Button>
-                ) : (
-                  <Button className="w-full" onClick={onBackToIntro}>
-                    Back to options
-                  </Button>
-                )}
-                <Button
-                  className="w-full"
-                  variant="ghost"
-                  onClick={() => onCompareToBe(step)}
-                >
-                  See To-Be version of this step
-                </Button>
-              </div>
+          <div className="bg-slate-900 text-white rounded-2xl p-4 text-left mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Lucide.Printer className="w-4 h-4 text-emerald-400" />
+              <span className="font-semibold text-sm">
+                Hospital kiosk pickup
+              </span>
+            </div>
+            <p className="text-xs text-slate-200 mb-3">
+              Scan this code at the ICP kiosk in the hospital lobby to print
+              physical documents immediately.
+            </p>
+            <div className="inline-block bg-white rounded-lg p-2">
+              <Lucide.QrCode className="w-16 h-16 text-slate-900" />
             </div>
           </div>
-        );
-      };
 
-      // ---------- To-Be Journey ----------
+          <Button
+            onClick={onBack}
+            variant="secondary"
+            className="w-full mt-2"
+          >
+            Back to options
+          </Button>
+        </Card>
+      </Frame>
+    );
+  }
 
-      const ToBeJourney = ({
-        initialStep = 1,
-        onBackToIntro,
-        onCompareAsIs,
-      }) => {
-        const [step, setStep] = useState(initialStep);
-        const [nameEn, setNameEn] = useState("");
-        const [nameAr, setNameAr] = useState("");
-        const [gender, setGender] = useState("boy");
-        const [letter, setLetter] = useState("Z");
-        const [suggestions, setSuggestions] = useState([]);
-        const [addMofa, setAddMofa] = useState(false);
-        const [showAdPayMessage, setShowAdPayMessage] = useState(false);
+  return null;
+};
 
-        useEffect(() => {
-          setStep(initialStep);
-        }, [initialStep]);
+/* ----------------- Main App ----------------- */
 
-        const steps = [
-          { id: 1, label: "Start" },
-          { id: 2, label: "Naming" },
-          { id: 3, label: "Documents" },
-          { id: 4, label: "Payment" },
-          { id: 5, label: "Issued" },
-        ];
+const App = () => {
+  const [view, setView] = useState("splash");
 
-        const nameData = {
-          boy: {
-            Z: [
-              {
-                en: "Zayed",
-                ar: "زايد",
-                meaning: "Growth; one who increases in goodness.",
-              },
-              {
-                en: "Ziyad",
-                ar: "زياد",
-                meaning: "Abundance; growth.",
-              },
-              {
-                en: "Zuhair",
-                ar: "زهير",
-                meaning: "Bright; shining.",
-              },
-            ],
-            K: [
-              {
-                en: "Khalifa",
-                ar: "خليفة",
-                meaning: "Successor; leader.",
-              },
-              {
-                en: "Khalid",
-                ar: "خالد",
-                meaning: "Everlasting; eternal.",
-              },
-              {
-                en: "Kamil",
-                ar: "كامل",
-                meaning: "Complete; perfect.",
-              },
-            ],
-            H: [
-              {
-                en: "Hamdan",
-                ar: "حمدان",
-                meaning: "One who gives thanks often.",
-              },
-              {
-                en: "Hassan",
-                ar: "حسن",
-                meaning: "Good; handsome.",
-              },
-              {
-                en: "Hazem",
-                ar: "حازم",
-                meaning: "Decisive; firm.",
-              },
-            ],
-          },
-          girl: {
-            Z: [
-              {
-                en: "Zainab",
-                ar: "زينب",
-                meaning: "Fragrant flower; beauty.",
-              },
-              {
-                en: "Zahra",
-                ar: "زهرة",
-                meaning: "Blossom; radiant.",
-              },
-              {
-                en: "Zainah",
-                ar: "زينة",
-                meaning: "Grace; adornment.",
-              },
-            ],
-            K: [
-              {
-                en: "Khawla",
-                ar: "خولة",
-                meaning: "Gazelle; graceful.",
-              },
-              {
-                en: "Kawthar",
-                ar: "كوثر",
-                meaning: "Abundance; plenty.",
-              },
-              {
-                en: "Kamilah",
-                ar: "كاملة",
-                meaning: "Perfect; complete.",
-              },
-            ],
-            H: [
-              {
-                en: "Hessa",
-                ar: "حصة",
-                meaning: "Precious pearl.",
-              },
-              {
-                en: "Huda",
-                ar: "هدى",
-                meaning: "Guidance.",
-              },
-              {
-                en: "Hind",
-                ar: "هند",
-                meaning: "Old Arabic name; strength.",
-              },
-            ],
-          },
-        };
+  return (
+    <div className="font-sans antialiased">
+      {view === "splash" && (
+        <TammSplash onNext={() => setView("login")} />
+      )}
+      {view === "login" && (
+        <UAEPassLogin onLogin={() => setView("home")} />
+      )}
+      {view === "home" && (
+        <HomeScreen onOpenStory={() => setView("story")} />
+      )}
+      {view === "story" && (
+        <JourneyStory
+          onBack={() => setView("home")}
+          onAsIs={() => setView("asis")}
+          onToBe={() => setView("tobe")}
+          onSummary={() => setView("summary")}
+        />
+      )}
+      {view === "summary" && (
+        <SummaryPage onBack={() => setView("story")} />
+      )}
+      {view === "asis" && (
+        <AsIsJourney onBack={() => setView("story")} />
+      )}
+      {view === "tobe" && (
+        <ToBeJourney onBack={() => setView("story")} />
+      )}
+    </div>
+  );
+};
 
-        const generateNames = () => {
-          const set =
-            nameData[gender] &&
-            nameData[gender][letter] &&
-            nameData[gender][letter].length
-              ? nameData[gender][letter]
-              : [];
-          setSuggestions(set);
-        };
-
-        const isNameVerified = nameEn.trim() && nameAr.trim();
-        const total = 275 + (addMofa ? 150 : 0);
-
-        return (
-          <div className="min-h-screen flex justify-center bg-slate-100 px-4 py-6">
-            <div className="w-full max-w-md">
-              <Breadcrumb label="To-Be journey" onHome={onBackToIntro} />
-              <JourneyStepsHeader
-                steps={steps}
-                step={step}
-                onStepChange={setStep}
-                title="To-Be journey"
-              />
-
-              <Card className="p-6 mb-4">
-                {step === 1 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 1 · Proactive notification
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-4">
-                      When the birth notification is completed in the hospital,
-                      the Mabrouk Ma Yak journey starts automatically — no one
-                      has to search or type numbers.
-                    </p>
-                    <div className="bg-slate-900 text-white rounded-2xl p-4 flex items-start gap-3 mb-4">
-                      <div className="mt-1">
-                        <Lucide.Baby className="w-5 h-5 text-amber-300" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold mb-1">
-                          Mabrouk Ma Yak!
-                        </p>
-                        <p className="text-sm text-slate-100 mb-1">
-                          We received a birth notification for your newborn. Tap
-                          to name your baby and issue all documents in one
-                          journey.
-                        </p>
-                        <p className="text-[11px] text-slate-300">
-                          Just now · from Malafi
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {step === 2 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 2 · Smart naming with AI
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-4">
-                      Parents can type a name or use AI suggestions, with
-                      instant ICP validation before they move on.
-                    </p>
-                    <div className="space-y-4 mb-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                          Name (English)
-                        </label>
-                        <input
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
-                          placeholder="e.g. Zayed"
-                          value={nameEn}
-                          onChange={(e) => setNameEn(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                          Name (Arabic)
-                        </label>
-                        <input
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-right"
-                          placeholder="e.g. زايد"
-                          value={nameAr}
-                          onChange={(e) => setNameAr(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="relative flex items-center my-3">
-                      <div className="flex-grow border-t border-slate-200" />
-                      <span className="mx-3 text-[11px] text-slate-400">
-                        OR USE AI
-                      </span>
-                      <div className="flex-grow border-t border-slate-200" />
-                    </div>
-
-                    <div className="bg-violet-50 border border-violet-100 rounded-2xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Lucide.Sparkles className="w-4 h-4 text-violet-600" />
-                          <span className="text-xs font-semibold text-violet-700">
-                            AI name helper
-                          </span>
-                        </div>
-                        <div className="flex text-[11px] font-semibold rounded-full bg-white p-1">
-                          <button
-                            className={
-                              "px-2 py-1 rounded-full " +
-                              (gender === "boy"
-                                ? "bg-violet-600 text-white"
-                                : "text-slate-600")
-                            }
-                            onClick={() => setGender("boy")}
-                          >
-                            Boy
-                          </button>
-                          <button
-                            className={
-                              "px-2 py-1 rounded-full " +
-                              (gender === "girl"
-                                ? "bg-violet-600 text-white"
-                                : "text-slate-600")
-                            }
-                            onClick={() => setGender("girl")}
-                          >
-                            Girl
-                          </button>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-slate-600 mb-2">
-                        Choose first letter (optional)
-                      </p>
-                      <div className="flex gap-2 mb-3">
-                        {["Z", "K", "H"].map((ch) => (
-                          <button
-                            key={ch}
-                            className={
-                              "w-8 h-8 rounded-full border text-sm font-semibold flex items-center justify-center " +
-                              (letter === ch
-                                ? "bg-violet-600 text-white border-violet-600"
-                                : "bg-white text-slate-600 border-violet-200")
-                            }
-                            onClick={() => setLetter(ch)}
-                          >
-                            {ch}
-                          </button>
-                        ))}
-                      </div>
-
-                      <Button
-                        variant="subtle"
-                        className="w-full text-xs mb-3"
-                        icon={Lucide.Sparkles}
-                        onClick={generateNames}
-                      >
-                        Generate name suggestions
-                      </Button>
-
-                      {suggestions.length > 0 && (
-                        <div className="space-y-2">
-                          {suggestions.map((s, idx) => (
-                            <button
-                              key={idx}
-                              className="w-full text-left bg-white rounded-xl border border-violet-100 px-3 py-2 hover:border-violet-300"
-                              onClick={() => {
-                                setNameEn(s.en);
-                                setNameAr(s.ar);
-                              }}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-semibold text-sm text-slate-900">
-                                  {s.en} / {s.ar}
-                                </span>
-                                <span className="text-[11px] text-violet-600 font-semibold">
-                                  {gender === "boy" ? "Boy" : "Girl"}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-1">
-                                Meaning: {s.meaning}
-                              </p>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {isNameVerified && (
-                      <div className="mt-4 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 flex items-start gap-2 text-xs text-emerald-800">
-                        <Lucide.ShieldCheck className="w-4 h-4 mt-0.5" />
-                        <div>
-                          <p className="font-semibold">Name verified</p>
-                          <p className="mt-0.5">
-                            Arabic and English forms match ICP naming rules. No
-                            name-mismatch rejections.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {step === 3 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 3 · Documents auto-fetched
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-4">
-                      All required documents are pulled automatically from ICP,
-                      Malafi and the Ministry of Justice. Parents don’t upload
-                      anything.
-                    </p>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <span className="bg-emerald-100 text-emerald-700 rounded-lg p-1.5">
-                            <Lucide.UserCheck className="w-4 h-4" />
-                          </span>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">
-                              Father’s ID & passport
-                            </p>
-                          </div>
-                        </div>
-                        <Lucide.Check className="w-4 h-4 text-emerald-600" />
-                      </div>
-                      <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <span className="bg-emerald-100 text-emerald-700 rounded-lg p-1.5">
-                            <Lucide.UserCheck className="w-4 h-4" />
-                          </span>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">
-                              Mother’s ID & passport
-                            </p>
-                          </div>
-                        </div>
-                        <Lucide.Check className="w-4 h-4 text-emerald-600" />
-                      </div>
-                      <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <span className="bg-emerald-100 text-emerald-700 rounded-lg p-1.5">
-                            <Lucide.FileCheck className="w-4 h-4" />
-                          </span>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">
-                              Marriage contract
-                            </p>
-                          </div>
-                        </div>
-                        <Lucide.Check className="w-4 h-4 text-emerald-600" />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {step === 4 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 4 · Single payment for bundle
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-4">
-                      One payment covers birth certificate, Emirates ID and
-                      passport, with an optional auto-attest with MOFA and a
-                      recovery layer for AD Pay.
-                    </p>
-
-                    <div className="border border-slate-200 rounded-2xl mb-4">
-                      <div className="px-4 pt-4 pb-2 text-xs font-semibold text-slate-500 uppercase">
-                        Bundle breakdown
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-2 text-sm border-t border-slate-100">
-                        <span>Birth certificate</span>
-                        <span className="font-semibold">50 AED</span>
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-2 text-sm border-t border-slate-100">
-                        <span>Emirates ID (newborn)</span>
-                        <span className="font-semibold">170 AED</span>
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-2 text-sm border-t border-slate-100">
-                        <span>Passport issuance</span>
-                        <span className="font-semibold">55 AED</span>
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-3 text-sm font-semibold border-t border-slate-100">
-                        <span>Bundle total</span>
-                        <span>275 AED</span>
-                      </div>
-                    </div>
-
-                    <div
-                      className={
-                        "mb-4 border rounded-2xl p-4 cursor-pointer flex items-start gap-3 " +
-                        (addMofa
-                          ? "border-teal-600 bg-teal-50"
-                          : "border-slate-200 bg-white")
-                      }
-                      onClick={() => setAddMofa((v) => !v)}
-                    >
-                      <div className="mt-0.5">
-                        <div
-                          className={
-                            "w-5 h-5 rounded border flex items-center justify-center " +
-                            (addMofa
-                              ? "bg-teal-600 border-teal-600"
-                              : "border-slate-300 bg-white")
-                          }
-                        >
-                          {addMofa && (
-                            <Lucide.Check className="w-3 h-3 text-white" />
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          Auto-attest with MOFA
-                        </p>
-                        <p className="text-xs text-slate-600">
-                          Digital attestation stamp from Ministry of Foreign
-                          Affairs, added automatically to the certificate.
-                        </p>
-                        <p className="text-xs font-semibold text-teal-700 mt-1">
-                          +150 AED
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-slate-900 text-white rounded-2xl px-4 py-3 mb-3">
-                      <span className="text-sm font-medium">Total amount</span>
-                      <span className="text-xl font-bold">
-                        {total}.00 AED
-                      </span>
-                    </div>
-
-                    <Button
-                      variant="black"
-                      className="w-full mb-2"
-                      icon={Lucide.Apple}
-                      onClick={() => {
-                        setShowAdPayMessage(false);
-                      }}
-                    >
-                      Pay with Apple Pay
-                    </Button>
-
-                    <Button
-                      variant="subtle"
-                      className="w-full text-xs"
-                      onClick={() => setShowAdPayMessage(true)}
-                    >
-                      Reconcile with AD Pay
-                    </Button>
-
-                    {showAdPayMessage && (
-                      <div className="mt-3 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 text-xs text-emerald-800 flex items-start gap-2">
-                        <Lucide.CheckCircle className="w-4 h-4 mt-0.5" />
-                        <p>
-                          ✅ Payment reconciled with AD Pay. Journey continues
-                          without a complaint.
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {step === 5 && (
-                  <>
-                    <h2 className="text-xl font-bold text-slate-900 mb-2">
-                      Step 5 · Documents issued instantly
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-4">
-                      Birth certificate, Emirates ID and passport are issued
-                      together and stored in the digital locker. If MOFA
-                      auto-attest was selected, the certificate is already
-                      attested.
-                    </p>
-
-                    <div className="flex flex-col items-center mb-4">
-                      <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
-                        <Lucide.Check className="w-8 h-8 text-emerald-600" />
-                      </div>
-                      <p className="text-lg font-semibold text-slate-900">
-                        Successfully issued
-                      </p>
-                    </div>
-
-                    <div className="border border-slate-200 rounded-2xl mb-4">
-                      <div className="px-4 pt-4 pb-2 text-xs font-semibold text-slate-500 uppercase">
-                        Digital locker
-                      </div>
-                      <div className="flex items-center justify-between px-4 py-2 text-sm border-t border-slate-100">
-                        <span>Birth certificate (PDF)</span>
-                        <Lucide.Download className="w-4 h-4 text-slate-400" />
-                      </div>
-                      <button className="flex items-center justify-center gap-2 bg-black text-white text-sm font-semibold rounded-b-2xl px-4 py-2">
-                        <Lucide.Wallet className="w-4 h-4" />
-                        Add to Apple Wallet
-                      </button>
-                    </div>
-
-                    <div className="bg-slate-900 text-white rounded-2xl p-4 flex flex-col gap-3">
-                      <div className="flex items-center gap-2">
-                        <Lucide.Printer className="w-5 h-5 text-emerald-300" />
-                        <p className="text-sm font-semibold">
-                          Hospital kiosk pickup
-                        </p>
-                      </div>
-                      <p className="text-xs text-slate-200">
-                        Scan this code at the hospital kiosk to print the
-                        newborn’s physical documents.
-                      </p>
-                      <div className="bg-white rounded-lg w-fit p-2">
-                        <Lucide.QrCode className="w-16 h-16 text-slate-900" />
-                      </div>
-                    </div>
-                  </>
-                )}
-              </Card>
-
-              <div className="space-y-3 mb-10">
-                {step < 5 ? (
-                  <Button className="w-full" onClick={() => setStep(step + 1)}>
-                    Next
-                  </Button>
-                ) : (
-                  <Button className="w-full" onClick={onBackToIntro}>
-                    Back to options
-                  </Button>
-                )}
-                <Button
-                  className="w-full"
-                  variant="ghost"
-                  onClick={() => onCompareAsIs(step)}
-                >
-                  Compare with As-Is step
-                </Button>
-              </div>
-            </div>
-          </div>
-        );
-      };
-
-      // ---------- Main App ----------
-
-      const App = () => {
-        const [view, setView] = useState("splash"); // splash, login, intro, summary, asis, tobe
-        const [currentStep, setCurrentStep] = useState(1);
-
-        if (view === "splash") {
-          return <TammSplash onDone={() => setView("login")} />;
-        }
-
-        if (view === "login") {
-          return <UAEPassLogin onLogin={() => setView("intro")} />;
-        }
-
-        if (view === "summary") {
-          return <StrategySummary onBack={() => setView("intro")} />;
-        }
-
-        if (view === "asis") {
-          return (
-            <AsIsJourney
-              initialStep={currentStep}
-              onBackToIntro={() => setView("intro")}
-              onCompareToBe={(step) => {
-                setCurrentStep(step);
-                setView("tobe");
-              }}
-            />
-          );
-        }
-
-        if (view === "tobe") {
-          return (
-            <ToBeJourney
-              initialStep={currentStep}
-              onBackToIntro={() => setView("intro")}
-              onCompareAsIs={(step) => {
-                setCurrentStep(step);
-                setView("asis");
-              }}
-            />
-          );
-        }
-
-        // intro
-        return (
-          <JourneyIntro
-            onStartAsIs={() => {
-              setCurrentStep(1);
-              setView("asis");
-            }}
-            onStartToBe={() => {
-              setCurrentStep(1);
-              setView("tobe");
-            }}
-            onOpenSummary={() => setView("summary")}
-          />
-        );
-      };
-
-      const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(<App />);
-
-      console.log("App mounted");
-    </script>
-  </body>
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
 </html>
 
